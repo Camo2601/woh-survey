@@ -1,5 +1,25 @@
-import { Route, Controller, Post, Put, Get, Delete, Security } from "tsoa";
+import {
+  Route,
+  Controller,
+  Post,
+  Put,
+  Get,
+  Delete,
+  Security,
+  Request,
+  Body,
+  Path,
+  Response,
+} from "tsoa";
 import { provideSingleton } from "../util/provideSingleton";
+import { TodoDTO } from "./todo.dto";
+import { TodoService } from "./todo.service";
+import { InjectUser } from "../util/userDecorator";
+import { User } from "../users/user.entity";
+import { CreateTodoDTO } from "./createTodo.dto";
+import { UpdateTodoDTO } from "./updateTodo.dto";
+import { TodoEntity } from "./todo.entity";
+import { ErrorMessage } from "../util/errors";
 
 @Route("todos")
 @Security("jwt")
@@ -10,41 +30,81 @@ export class TodosController extends Controller {
    * @todo: Inject the todoService:
    * @inject(TodoService) private todoService: TodoService
    */
-  constructor() {
+  constructor(private todoService: TodoService) {
     super();
   }
 
-  /**
-   * @todo Add implementation, documentation and a fix the return type annotation
-   */
-  @Get()
-  public async getTodos() {
-    // add parameters
-    // return todoService.getAll()
+  private toDTO(todo: TodoEntity) {
+    return {
+      title: todo.title,
+      description: todo.description,
+      progress: todo.progress,
+      user: todo.user,
+    };
   }
 
   /**
    * @todo Add implementation, documentation and a fix the return type annotation
    */
-  @Post()
-  public async createTodo() {
+  @Get("/")
+  public async getTodos(
+    @Request() @InjectUser() user: User
+  ): Promise<TodoDTO[]> {
     // add parameters
-    // return todoService.create
+    return (await this.todoService.getAll(user)).map((todo) =>
+      this.toDTO(todo)
+    );
+  }
+
+  /**
+   * @todo Add implementation, documentation and a fix the return type annotation
+   */
+  @Post("/")
+  public async createTodo(
+    @Body() body: CreateTodoDTO,
+    @Request() @InjectUser() user: User
+  ): Promise<TodoDTO> {
+    const todo = await this.todoService.create(body, user);
+    return this.toDTO(todo);
   }
 
   /**
    * @todo Add implementation, fix route, parameters, documentation and a fix the return type annotation
    */
-  @Put()
-  public async updateTodo() {
+  @Put("/{id}")
+  @Response<ErrorMessage>(404, "Could not find toto")
+  public async updateTodo(
+    @Path("id") id: string,
+    @Body() body: UpdateTodoDTO,
+    @Request() @InjectUser() user: User
+  ): Promise<TodoDTO | ErrorMessage> {
     // get the Todo, handle not found, pass it with the updates to todoService.update
+    const todo = await this.todoService.get(id, user);
+    if (!todo) {
+      return {
+        message: "Could not find todo",
+      };
+    }
+    const updated = await this.todoService.update(todo, body);
+    return this.toDTO(updated);
   }
 
   /**
    * @todo Add implementation, fix route, parameters, documentation and a fix the return type annotation
    */
-  @Delete()
-  public async deleteTodo() {
+  @Delete("/{id}")
+  public async deleteTodo(
+    @Path("id") id: string,
+    @Request() @InjectUser() user: User
+  ): Promise<TodoDTO | ErrorMessage> {
+    const todo = await this.todoService.get(id, user);
+    if (!todo) {
+      return {
+        message: "Could not find todo",
+      };
+    }
+    await this.todoService.remove(todo);
+    return todo;
     // get the task
     // handle not found
     //return todo
