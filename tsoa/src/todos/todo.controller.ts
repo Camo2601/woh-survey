@@ -11,6 +11,8 @@ import {
   Path,
   Response,
   Query,
+  Res,
+  TsoaResponse,
 } from "tsoa";
 import { provideSingleton } from "../util/provideSingleton";
 import { TodoDTO } from "./todo.dto";
@@ -22,6 +24,7 @@ import { UpdateTodoDTO } from "./updateTodo.dto";
 import { TodoEntity, TodoProgress } from "./todo.entity";
 import { ErrorMessage } from "../util/errors";
 import { GetTodosDTO } from "./getTodos.dto copy";
+import { inject } from "inversify";
 
 @Route("todos")
 @Security("jwt")
@@ -32,7 +35,7 @@ export class TodosController extends Controller {
    * @todo: Inject the todoService:
    * @inject(TodoService) private todoService: TodoService
    */
-  constructor(private todoService: TodoService) {
+  constructor(@inject(TodoService) private todoService: TodoService) {
     super();
   }
 
@@ -84,14 +87,15 @@ export class TodosController extends Controller {
   public async updateTodo(
     @Path("id") id: string,
     @Body() body: UpdateTodoDTO,
-    @Request() @InjectUser() user: User
+    @Request() @InjectUser() user: User,
+    @Res() notFound: TsoaResponse<404, ErrorMessage>
   ): Promise<TodoDTO | ErrorMessage> {
     // get the Todo, handle not found, pass it with the updates to todoService.update
     const todo = await this.todoService.get(id, user);
     if (!todo) {
-      return {
+      return notFound(404, {
         message: "Could not find todo",
-      };
+      });
     }
     const updated = await this.todoService.update(todo, body);
     return this.toDTO(updated);
@@ -103,13 +107,14 @@ export class TodosController extends Controller {
   @Delete("/{id}")
   public async deleteTodo(
     @Path("id") id: string,
-    @Request() @InjectUser() user: User
+    @Request() @InjectUser() user: User,
+    @Res() notFound: TsoaResponse<404, ErrorMessage>
   ): Promise<TodoDTO | ErrorMessage> {
     const todo = await this.todoService.get(id, user);
     if (!todo) {
-      return {
+      return notFound(404, {
         message: "Could not find todo",
-      };
+      });
     }
     await this.todoService.remove(todo);
     return todo;
