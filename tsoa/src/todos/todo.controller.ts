@@ -10,6 +10,7 @@ import {
   Body,
   Path,
   Response,
+  Query,
 } from "tsoa";
 import { provideSingleton } from "../util/provideSingleton";
 import { TodoDTO } from "./todo.dto";
@@ -18,8 +19,9 @@ import { InjectUser } from "../util/userDecorator";
 import { User } from "../users/user.entity";
 import { CreateTodoDTO } from "./createTodo.dto";
 import { UpdateTodoDTO } from "./updateTodo.dto";
-import { TodoEntity } from "./todo.entity";
+import { TodoEntity, TodoProgress } from "./todo.entity";
 import { ErrorMessage } from "../util/errors";
+import { GetTodosDTO } from "./getTodos.dto copy";
 
 @Route("todos")
 @Security("jwt")
@@ -48,10 +50,16 @@ export class TodosController extends Controller {
    */
   @Get("/")
   public async getTodos(
-    @Request() @InjectUser() user: User
+    @Request() @InjectUser() user: User,
+    @Query("progress") progress: TodoProgress[],
+    /**
+     * @minLength 3
+     */
+    @Query("search") search: string
   ): Promise<TodoDTO[]> {
     // add parameters
-    return (await this.todoService.getAll(user)).map((todo) =>
+    const filters: GetTodosDTO = { progress, search };
+    return (await this.todoService.getAll(user, filters)).map((todo) =>
       this.toDTO(todo)
     );
   }
